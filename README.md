@@ -1,6 +1,6 @@
 "Coming soon" :)
 
-`ContractEngine`: CSV data
+`CSVEngine`: CSV data
 `DatabaseEngine`: database engine
 
 Make sure you have a `db.env` saved **at the root of the directory** with the following parameters:
