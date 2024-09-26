@@ -1,0 +1,13 @@
+[project]
+name = "dbconnect"
+version = "0.16.0"
+description = "Database Connection Library for DataFrames from SQL and CSVs"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "python-dotenv>=1.0.1",
+    "pyodbc>=5.1.0",
+    "pyarrow>=17.0.0",
+    "sqlalchemy>=2.0.34",
+    "typeguard>=4.3.0",
+]
