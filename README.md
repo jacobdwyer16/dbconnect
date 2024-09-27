@@ -7,8 +7,8 @@ Make sure you have a `db.env` saved **at the root of the directory** with the fo
 ``` .env
 DBUSER=jacob
 DBPASSWORD=password
-DBHOST=PORTAL
-DBPORT=1555
+DBHOST=host
+DBPORT=1234
 DBNAME=database_name
 QUERYFOLDER=query
 ```
