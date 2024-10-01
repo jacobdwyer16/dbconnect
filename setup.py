@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name= "dbconnect",
-    version = "0.16.0",
+    version = "0.17.0",
     include_package_data = True,
     packages= find_packages(),
     author= "Jacob Dwyer",
