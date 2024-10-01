@@ -1,9 +1,8 @@
-import asyncio
 import logging
 import os
 import threading
-from functools import lru_cache, partial
-from typing import Any, Callable, Union
+from functools import lru_cache
+from typing import Any, Union
 
 import polars as pl
 import pyodbc
@@ -16,31 +15,27 @@ logger = logging.getLogger(__name__)
 
 class DatabaseEngine:
     """
-    DatabaseEngine is a singleton class responsible for managing database connections and executing queries.
-    It ensures that only one instance of the database engine is created and provides methods to interact with the database.
+    DatabaseEngine is a singleton class responsible for managing the database connection and executing queries.
     Attributes:
-        _instance (DatabaseEngine): The singleton instance of the DatabaseEngine.
-        _lock (threading.Lock): A lock to ensure thread-safe singleton creation.
-        _login_timeout (int): The timeout duration for login attempts.
-        _timeout (int): The timeout duration for query execution.
+        _instance (DatabaseEngine): The singleton instance of the class.
+        _lock (threading.Lock): A lock to ensure thread-safe singleton initialization.
+        _timeout (int): The timeout value for database connections.
         _engine (Union[Engine, None]): The SQLAlchemy engine instance.
         project_root (str): The root directory of the project.
         query_folder (str): The directory where SQL query files are stored.
     Methods:
-        __new__(cls, *args, **kwargs): Ensures only one instance of the class is created.
-        _initialize(self, login_timeout=30, timeout=300, env_file="db.env"): Initializes the database engine with the given parameters.
-        _load_environment(self, env_file): Loads environment variables from the specified file.
-        _initialize_query_folder(self): Initializes the query folder from environment variables.
-        timeout(self): Gets or sets the query execution timeout.
-        login_timeout(self): Gets or sets the login timeout.
-        engine(self): Gets the SQLAlchemy engine instance, creating it if necessary.
-        _create_engine(self): Creates and configures the SQLAlchemy engine.
+        __new__(cls, *args, **kwargs): Ensures that only one instance of the class is created.
+        _initialize(timeout=300, env_file="db.env"): Initializes the instance with the given timeout and environment file.
+        _load_environment(env_file): Loads environment variables from the specified file.
+        _initialize_query_folder(): Initializes the query folder from the environment variable.
+        timeout: Property to get and set the timeout value.
+        engine: Property to get the SQLAlchemy engine instance.
+        _create_engine(): Creates and returns the SQLAlchemy engine instance.
         _get_connection_string(): Constructs the database connection string from environment variables.
-        load_query(self, query_filename): Loads an SQL query from a file.
-        _execute_query_async(self, query, **kwargs): Asynchronously executes a query and returns the result as a Polars DataFrame.
-        execute_query(self, query, **kwargs): Executes a query and returns the result as a Polars DataFrame.
-        execute_query_from_file(self, query_filename, **kwargs): Executes a query loaded from a file and returns the result as a Polars DataFrame.
-        clear_all_caches(self): Clears all cached methods in the class.
+        load_query(query_filename): Loads an SQL query from a file.
+        execute_query(query, **kwargs): Executes the given SQL query and returns the result as a DataFrame.
+        execute_query_from_file(query_filename, **kwargs): Executes an SQL query from a file and returns the result as a DataFrame.
+        clear_all_caches(): Clears all cached methods in the instance.
     """
 
     _instance = None
@@ -54,10 +49,7 @@ class DatabaseEngine:
                     cls._instance._initialize(*args, **kwargs)
         return cls._instance
 
-    def _initialize(
-        self, login_timeout: int = 30, timeout: int = 300, env_file: str = "db.env"
-    ) -> None:
-        self._login_timeout = login_timeout
+    def _initialize(self, timeout: int = 300, env_file: str = "db.env") -> None:
         self._timeout = timeout
         self._load_environment(env_file)
         self._initialize_query_folder()
@@ -103,17 +95,6 @@ class DatabaseEngine:
             self._engine = None
 
     @property
-    def login_timeout(self) -> int:
-        return self._login_timeout
-
-    @login_timeout.setter
-    @typechecked
-    def login_timeout(self, value: int) -> None:
-        self._login_timeout = value
-        if hasattr(self, "_engine"):
-            self._engine = None
-
-    @property
     def engine(self) -> Engine:
         if self._engine is None:
             self._engine = self._create_engine()
@@ -129,10 +110,10 @@ class DatabaseEngine:
         )
 
         @event.listens_for(self._engine, "connect")
-        def set_login_timeout(
+        def set_query_timeout(
             dbapi_connection: pyodbc.Connection, connection_record: Any
         ) -> None:
-            dbapi_connection.timeout = self.login_timeout
+            dbapi_connection.timeout = self.timeout
 
         if not isinstance(self._engine, Engine):
             raise TypeError("self._engine is not type Engine")
@@ -175,23 +156,9 @@ class DatabaseEngine:
 
     @lru_cache
     @typechecked
-    async def _execute_query_async(self, query: str, **kwargs: Any) -> pl.DataFrame:
-        try:
-            reader_func: Callable[[], pl.DataFrame] = partial(
-                pl.read_database, query, self.engine, **kwargs
-            )
-            df: pl.DataFrame = await asyncio.wait_for(
-                asyncio.to_thread(reader_func),
-                self.timeout,
-            )
-            assert isinstance(df, pl.DataFrame), "Expected a Polars DataFrame"
-            return df
-        except asyncio.TimeoutError as e:
-            raise TimeoutError(f"Query execution exceeded {self.timeout} seconds: {e}")
-
-    @typechecked
     def execute_query(self, query: str, **kwargs: Any) -> pl.DataFrame:
-        return asyncio.run(self._execute_query_async(query, **kwargs))
+        df: pl.DataFrame = pl.read_database(query, self.engine, **kwargs)
+        return df
 
     @lru_cache
     @typechecked
