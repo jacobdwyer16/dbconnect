@@ -20,7 +20,7 @@ class CSVEngine:
         _path (Path): The path to the directory containing CSV files.
         _column_mappings (Optional[Dict[str, Dict[str, pl.DataType]]]): Optional mappings of column names to Polars data types.
     Methods:
-        __new__(cls, *args: Any, **kwargs: Any) -> CSVEngine:
+        __new__(cls, *args: Any, **kwargs: Any) -> "CSVEngine":
             Ensures that only one instance of the class is created (singleton pattern).
         check_polars_version() -> None:
             Checks if the installed Polars version is 1.0.0 or higher. Raises ImportError if the version is too old.
@@ -31,13 +31,15 @@ class CSVEngine:
         path(value: Path) -> None:
             Sets a new path to the directory containing CSV files.
         _load_file_df(path: Path, column_mapping: Dict[str, pl.DataType] | None) -> pl.DataFrame:
-            Loads a CSV file into a Polars DataFrame, applying optional column mappings.
+            Loads a DataFrame from the specified CSV file path and applies column mappings if provided.
         _load_df() -> pl.DataFrame:
-            Loads the DataFrame from the CSV file, using caching to improve performance.
+            Loads a DataFrame using the current path and column mappings.
         get_df() -> pl.DataFrame:
-            Returns the loaded DataFrame.
+            Returns a cached DataFrame loaded from the current path and column mappings.
+        get_df_no_cache() -> pl.DataFrame:
+            Returns a DataFrame loaded from the current path and column mappings without using the cache.
         clear_all_caches() -> None:
-            Clears all cached data and reinitializes the CSVEngine instance.
+            Clears all cached DataFrames and reinitializes the CSVEngine instance.
     """
 
     _instance = None
@@ -85,7 +87,7 @@ class CSVEngine:
         if len(str(path)) == 0:
             return pl.DataFrame()
 
-        full_path = str(Path(path)/"*.csv")
+        full_path = str(Path(path) / "*.csv")
 
         if not Path(path).exists():
             logging.warning(f"Current path {path} does not exist.")
@@ -102,7 +104,6 @@ class CSVEngine:
 
         return df
 
-    @lru_cache
     def _load_df(self) -> pl.DataFrame:
         df = self._load_file_df(
             path=self.path,
@@ -114,8 +115,13 @@ class CSVEngine:
 
         return df
 
+    @lru_cache
     @typechecked
     def get_df(self) -> pl.DataFrame:
+        return self._load_df()
+
+    @typechecked
+    def get_df_no_cache(self) -> pl.DataFrame:
         return self._load_df()
 
     def clear_all_caches(self) -> None:

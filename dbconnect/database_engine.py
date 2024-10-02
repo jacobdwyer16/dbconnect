@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 class DatabaseEngine:
     """
-    DatabaseEngine is a singleton class responsible for managing the database connection and executing queries.
+    DatabaseEngine is a singleton class responsible for managing database connections and executing queries.
     Attributes:
         _instance (DatabaseEngine): The singleton instance of the class.
         _lock (threading.Lock): A lock to ensure thread-safe singleton initialization.
@@ -24,18 +24,36 @@ class DatabaseEngine:
         project_root (str): The root directory of the project.
         query_folder (str): The directory where SQL query files are stored.
     Methods:
-        __new__(cls, *args, **kwargs): Ensures that only one instance of the class is created.
-        _initialize(timeout=300, env_file="db.env"): Initializes the instance with the given timeout and environment file.
-        _load_environment(env_file): Loads environment variables from the specified file.
-        _initialize_query_folder(): Initializes the query folder from the environment variable.
-        timeout: Property to get and set the timeout value.
-        engine: Property to get the SQLAlchemy engine instance.
-        _create_engine(): Creates and returns the SQLAlchemy engine instance.
-        _get_connection_string(): Constructs the database connection string from environment variables.
-        load_query(query_filename): Loads an SQL query from a file.
-        execute_query(query, **kwargs): Executes the given SQL query and returns the result as a DataFrame.
-        execute_query_from_file(query_filename, **kwargs): Executes an SQL query from a file and returns the result as a DataFrame.
-        clear_all_caches(): Clears all cached methods in the instance.
+        __new__(cls, *args: Any, **kwargs: Any) -> "DatabaseEngine":
+            Ensures only one instance of the class is created (singleton pattern).
+        _initialize(self, timeout: int = 300, env_file: str = "db.env") -> None:
+            Initializes the instance with the given timeout and environment file.
+        _load_environment(self, env_file: str) -> None:
+            Loads environment variables from the specified file.
+        _initialize_query_folder(self) -> None:
+            Initializes the query folder from environment variables.
+        timeout(self) -> int:
+            Gets the timeout value.
+        timeout(self, value: int) -> None:
+            Sets the timeout value and resets the engine if it exists.
+        engine(self) -> Engine:
+            Gets the SQLAlchemy engine, creating it if necessary.
+        _create_engine(self) -> Engine:
+            Creates and configures the SQLAlchemy engine.
+        _get_connection_string() -> str:
+            Constructs the database connection string from environment variables.
+        load_query(self, query_filename: str) -> str:
+            Loads an SQL query from a file.
+        execute_query(self, query: str, **kwargs: Any) -> pl.DataFrame:
+            Executes an SQL query and returns the result as a DataFrame.
+        execute_query_no_cache(self, query: str, **kwargs: Any) -> pl.DataFrame:
+            Executes an SQL query without using the cache and returns the result as a DataFrame.
+        execute_query_from_file(self, query_filename: str, **kwargs: Any) -> pl.DataFrame:
+            Executes an SQL query from a file and returns the result as a DataFrame.
+        execute_query_from_file_no_cache(self, query_filename: str, **kwargs: Any) -> pl.DataFrame:
+            Executes an SQL query from a file without using the cache and returns the result as a DataFrame.
+        clear_all_caches(self) -> None:
+            Clears all cached methods in the instance.
     """
 
     _instance = None
@@ -160,9 +178,21 @@ class DatabaseEngine:
         df: pl.DataFrame = pl.read_database(query, self.engine, **kwargs)
         return df
 
+    @typechecked
+    def execute_query_no_cache(self, query: str, **kwargs: Any) -> pl.DataFrame:
+        df: pl.DataFrame = pl.read_database(query, self.engine, **kwargs)
+        return df
+
     @lru_cache
     @typechecked
     def execute_query_from_file(
+        self, query_filename: str, **kwargs: Any
+    ) -> pl.DataFrame:
+        query = self.load_query(query_filename)
+        return self.execute_query(query, **kwargs)
+
+    @typechecked
+    def execute_query_from_file_no_cache(
         self, query_filename: str, **kwargs: Any
     ) -> pl.DataFrame:
         query = self.load_query(query_filename)
