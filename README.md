@@ -28,3 +28,5 @@ Install the `polars-lts-cpu` package to run polars with better compatibility.
 This requires the use of a different distribution with Polars, so uninstall `polars` and install `polars-lts-cpu` without any code changes.
 
 To convert `polars` to `pandas`, use `.to_pandas()` at the end of a function.
+
+Every function comes with a `_no_cache` variant that avoids the use of `@lru_cache`.
